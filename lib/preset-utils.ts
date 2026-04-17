@@ -5,16 +5,38 @@
 
 import type { ComparisonData, DataRecord, FilterState } from './types'
 
+/** Year span from loaded data (no hard-coded legacy 2023–2027). */
+export function getDataYearBounds(data: ComparisonData | null): { start: number; end: number } {
+  if (!data?.metadata) return { start: 2025, end: 2033 }
+  const { years, start_year, forecast_year } = data.metadata
+  if (years && years.length > 0) {
+    return { start: Math.min(...years), end: Math.max(...years) }
+  }
+  return { start: start_year ?? 2025, end: forecast_year ?? 2033 }
+}
+
+export function getPresetYearRange(data: ComparisonData | null): [number, number] {
+  const { start, end } = getDataYearBounds(data)
+  return [start, end]
+}
+
+/** Rank "Top Markets" using 2026 when present (sheet window), else first data year. */
+export function getMarketRankingYear(data: ComparisonData | null): number {
+  const { start, end } = getDataYearBounds(data)
+  if (2026 >= start && 2026 <= end) return 2026
+  return start
+}
+
 /**
  * Calculate top regions based on market value for a specific year
  * @param data - The comparison data
- * @param year - The year to evaluate (default 2024)
+ * @param year - The year to evaluate (defaults should come from getMarketRankingYear)
  * @param topN - Number of top regions to return (default 3)
  * @returns Array of top region names
  */
 export function getTopRegionsByMarketValue(
   data: ComparisonData | null,
-  year: number = 2023,
+  year: number = 2026,
   topN: number = 3
 ): string[] {
   if (!data) return []
@@ -200,7 +222,8 @@ export function getTopCountriesByCAGR(
  * @returns Partial FilterState with dynamic values
  */
 export function createTopMarketFilters(data: ComparisonData | null): Partial<FilterState> {
-  const topRegions = getTopRegionsByMarketValue(data, 2023, 3)
+  const rankYear = getMarketRankingYear(data)
+  const topRegions = getTopRegionsByMarketValue(data, rankYear, 3)
   const firstSegmentType = getFirstSegmentType(data)
   const firstLevelSegments = firstSegmentType
     ? getFirstLevelSegments(data, firstSegmentType)
@@ -211,7 +234,7 @@ export function createTopMarketFilters(data: ComparisonData | null): Partial<Fil
     geographies: topRegions,
     segments: firstLevelSegments,
     segmentType: firstSegmentType || 'By Technology',
-    yearRange: [2023, 2027],
+    yearRange: getPresetYearRange(data),
     dataType: 'value'
   }
 }
@@ -223,7 +246,7 @@ export function createTopMarketFilters(data: ComparisonData | null): Partial<Fil
 export function createGrowthLeadersFilters(data: ComparisonData | null): Partial<FilterState> {
   if (!data) return {
     viewMode: 'geography-mode',
-    yearRange: [2025, 2031],
+    yearRange: [2025, 2033],
     dataType: 'value'
   }
 
@@ -239,7 +262,7 @@ export function createGrowthLeadersFilters(data: ComparisonData | null): Partial
     geographies: topRegions,
     segments: firstLevelSegments,
     segmentType: firstSegmentType || 'By Technology',
-    yearRange: [2025, 2031],
+    yearRange: getPresetYearRange(data),
     dataType: 'value'
   }
 }
@@ -251,7 +274,7 @@ export function createGrowthLeadersFilters(data: ComparisonData | null): Partial
 export function createEmergingMarketsFilters(data: ComparisonData | null): Partial<FilterState> {
   if (!data) return {
     viewMode: 'geography-mode',
-    yearRange: [2025, 2031],
+    yearRange: [2025, 2033],
     dataType: 'value'
   }
 
@@ -267,7 +290,7 @@ export function createEmergingMarketsFilters(data: ComparisonData | null): Parti
     geographies: topCountries,
     segments: firstLevelSegments,
     segmentType: firstSegmentType || 'By Technology',
-    yearRange: [2025, 2031],
+    yearRange: getPresetYearRange(data),
     dataType: 'value'
   }
 }

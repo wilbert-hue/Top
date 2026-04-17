@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts'
 import { generateMarketShareData, MarketShareData, loadCompetitiveIntelligenceData } from '@/lib/competitive-intelligence-data'
 import { useDashboardStore } from '@/lib/store'
+import { getDataYearBounds, getMarketRankingYear } from '@/lib/preset-utils'
 import { GeographyMultiSelect } from '@/components/filters/GeographyMultiSelect'
 import { Filter, X } from 'lucide-react'
 
@@ -11,29 +12,45 @@ interface MarketShareAnalysisProps {
   year?: number
 }
 
-export function MarketShareAnalysis({ year: propYear = 2023 }: MarketShareAnalysisProps) {
+export function MarketShareAnalysis({ year: propYear }: MarketShareAnalysisProps) {
   const { data, filters, updateFilters } = useDashboardStore()
   const [marketShareData, setMarketShareData] = useState<MarketShareData[]>([])
   const [allCompaniesData, setAllCompaniesData] = useState<MarketShareData[]>([])
   const [activeTab, setActiveTab] = useState<'chart' | 'table'>('chart')
-  const [selectedYear, setSelectedYear] = useState<number>(propYear)
+  const defaultYear = useMemo(
+    () => propYear ?? getMarketRankingYear(data),
+    [propYear, data]
+  )
+  const [selectedYear, setSelectedYear] = useState<number>(() => propYear ?? 2026)
   const [showFilters, setShowFilters] = useState(false)
 
   // Get available years from metadata
   const availableYears = useMemo(() => {
-    if (data?.metadata?.years) {
-      return data.metadata.years.sort((a, b) => a - b)
+    if (data?.metadata?.years?.length) {
+      return [...data.metadata.years].sort((a, b) => a - b)
     }
-    // Fallback: generate years from start_year to forecast_year
-    if (data?.metadata?.start_year && data?.metadata?.forecast_year) {
+    if (data?.metadata?.start_year != null && data?.metadata?.forecast_year != null) {
       const years: number[] = []
       for (let y = data.metadata.start_year; y <= data.metadata.forecast_year; y++) {
         years.push(y)
       }
       return years
     }
-    return [2021, 2022, 2023, 2024, 2025, 2026, 2027, 2028, 2029]
+    const { start, end } = getDataYearBounds(data)
+    const years: number[] = []
+    for (let y = start; y <= end; y++) years.push(y)
+    return years
   }, [data])
+
+  useEffect(() => {
+    if (availableYears.length === 0) return
+    setSelectedYear((prev) => {
+      if (propYear != null && availableYears.includes(propYear)) return propYear
+      if (availableYears.includes(prev)) return prev
+      if (availableYears.includes(defaultYear)) return defaultYear
+      return availableYears.includes(2026) ? 2026 : availableYears[0]
+    })
+  }, [availableYears, propYear, defaultYear])
 
   // Filter data based on selected filters
   const filteredMarketShareData = useMemo(() => {
@@ -175,7 +192,7 @@ export function MarketShareAnalysis({ year: propYear = 2023 }: MarketShareAnalys
             </div>
             
             {/* Active Filters Summary */}
-            {(filters.geographies.length > 0 || selectedYear !== propYear) && (
+            {(filters.geographies.length > 0 || selectedYear !== defaultYear) && (
               <div className="md:col-span-2 pt-2 border-t border-gray-200">
                 <div className="flex items-center justify-between">
                   <div className="text-xs text-black">
@@ -186,7 +203,7 @@ export function MarketShareAnalysis({ year: propYear = 2023 }: MarketShareAnalys
                           Geography: {filters.geographies.length} selected
                         </span>
                       )}
-                      {selectedYear !== propYear && (
+                      {selectedYear !== defaultYear && (
                         <span className="inline-block">
                           Year: {selectedYear}
                         </span>
@@ -196,7 +213,7 @@ export function MarketShareAnalysis({ year: propYear = 2023 }: MarketShareAnalys
                   <button
                     onClick={() => {
                       updateFilters({ geographies: [] })
-                      setSelectedYear(propYear)
+                      setSelectedYear(defaultYear)
                     }}
                     className="flex items-center gap-1 px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
                     title="Clear all filters"

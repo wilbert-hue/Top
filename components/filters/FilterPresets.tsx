@@ -4,10 +4,12 @@ import { useState, useMemo } from 'react'
 import { Zap, TrendingUp, Globe, Target, BarChart3, Save, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
 import { useDashboardStore } from '@/lib/store'
 import { FilterState } from '@/lib/types'
-import { 
-  createTopMarketFilters, 
-  createGrowthLeadersFilters, 
-  createEmergingMarketsFilters 
+import {
+  createTopMarketFilters,
+  createGrowthLeadersFilters,
+  createEmergingMarketsFilters,
+  getPresetYearRange,
+  getMarketRankingYear,
 } from '@/lib/preset-utils'
 
 interface FilterPreset {
@@ -35,12 +37,14 @@ export function FilterPresets() {
     const topMarketFilters = createTopMarketFilters(data)
     const growthLeadersFilters = createGrowthLeadersFilters(data)
     const emergingMarketsFilters = createEmergingMarketsFilters(data)
+    const fullYearRange = getPresetYearRange(data)
+    const rankYear = getMarketRankingYear(data)
 
     return [
   {
     id: 'top-markets',
     name: 'Top Markets',
-        description: 'Top 3 regions by 2023 market size',
+        description: `Top 3 regions by ${rankYear} market size`,
     icon: <Globe className="h-4 w-4" />,
         filters: topMarketFilters
   },
@@ -65,7 +69,7 @@ export function FilterPresets() {
     icon: <BarChart3 className="h-4 w-4" />,
     filters: {
       viewMode: 'matrix',
-      yearRange: [2023, 2027],
+      yearRange: fullYearRange,
       dataType: 'value',
     }
   },
