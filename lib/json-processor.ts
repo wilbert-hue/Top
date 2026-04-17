@@ -4,6 +4,8 @@
  */
 
 import type { ComparisonData, DataRecord, Metadata, GeographyDimension, SegmentDimension, SegmentHierarchy } from './types'
+import { cagrPercent2026To2033 } from './cagr'
+import { getSheetCagrPercent } from './sheet-cagr-overrides'
 import fs from 'fs/promises'
 import path from 'path'
 
@@ -504,7 +506,8 @@ async function processSegmentTypeAsync(
   segmentType: string,
   geographies: string[],
   allYears: number[],
-  segmentTypeIndex: number
+  segmentTypeIndex: number,
+  datasetKind: 'value' | 'volume' = 'value'
 ): Promise<{
   segmentDimension: SegmentDimension
   records: DataRecord[]
@@ -1140,20 +1143,25 @@ async function processSegmentTypeAsync(
         timeSeries[year] = data[yearStr] !== null && data[yearStr] !== undefined ? (data[yearStr] as number) : 0
       })
       
-      // Parse CAGR - it might be a string like "5.2%" or a number
-      // If not provided in data, calculate from time series
+      // CAGR: use authoritative sheet % when available (per-line); else compute from 2026–2033.
       let cagr = 0
-      if (data.CAGR !== null && data.CAGR !== undefined) {
+      const sheetCagr = getSheetCagrPercent(segmentType, segment, datasetKind)
+      if (sheetCagr !== null) {
+        cagr = sheetCagr
+      } else {
+      const has2026 = allYears.includes(2026)
+      const has2033 = allYears.includes(2033)
+      if (has2026 && has2033) {
+        cagr = cagrPercent2026To2033(timeSeries)
+      } else if (data.CAGR !== null && data.CAGR !== undefined) {
         if (typeof data.CAGR === 'string') {
-          // Extract number from string like "5.2%" or "5.2"
           const cagrStr = data.CAGR.replace('%', '').trim()
           cagr = parseFloat(cagrStr) || 0
         } else if (typeof data.CAGR === 'number') {
           cagr = data.CAGR
         }
       } else {
-        // Calculate CAGR from base year (2023) to forecast year
-        const cagrStartYear = allYears[0] + 4 // Base year = 2023 for 2019-2031 data
+        const cagrStartYear = allYears[0]
         const cagrEndYear = allYears[allYears.length - 1]
         const startVal = timeSeries[cagrStartYear] || 0
         const endVal = timeSeries[cagrEndYear] || 0
@@ -1161,6 +1169,7 @@ async function processSegmentTypeAsync(
         if (startVal > 0 && endVal > 0 && numYears > 0) {
           cagr = (Math.pow(endVal / startVal, 1 / numYears) - 1) * 100
         }
+      }
       }
       
       records.push({
@@ -1386,7 +1395,8 @@ export async function processJsonDataAsync(
         segmentType,
         geographies,
         allYears,
-        segmentTypeIndex
+        segmentTypeIndex,
+        'value'
       )
       segments[segmentType] = segmentDimension
       valueRecords.push(...records)
@@ -1412,7 +1422,8 @@ export async function processJsonDataAsync(
           geoSegType,
           geographies,
           allYears,
-          segmentTypeIndex
+          segmentTypeIndex,
+          'value'
         )
         valueRecords.push(...geoRecords)
         await new Promise(resolve => setImmediate(resolve))
@@ -1430,7 +1441,8 @@ export async function processJsonDataAsync(
           segmentType,
           geographies,
           allYears,
-          segmentTypeIndex
+          segmentTypeIndex,
+          'volume'
         )
         volumeRecords.push(...volumeRecs)
       }
@@ -1448,7 +1460,8 @@ export async function processJsonDataAsync(
             geoSegType,
             geographies,
             allYears,
-            segmentTypeIndex
+            segmentTypeIndex,
+            'volume'
           )
           volumeRecords.push(...volumeGeoRecs)
         }

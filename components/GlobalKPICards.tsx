@@ -4,6 +4,7 @@ import { useMemo } from 'react'
 import { useDashboardStore } from '@/lib/store'
 import { TrendingUp, DollarSign, Calendar, Activity } from 'lucide-react'
 import { formatIndianNumber, formatIndianNumberWithCommas, formatCurrencyValue } from '@/lib/utils'
+import { CAGR_END_YEAR, CAGR_VALUE_YEAR, timeSeriesGet } from '@/lib/cagr'
 
 export function GlobalKPICards() {
   const { data, filters, currency } = useDashboardStore()
@@ -100,20 +101,18 @@ export function GlobalKPICards() {
       return null
     }
 
-    // Use actual years from data metadata
-    const startYear = data.metadata.base_year || data.metadata.start_year
-    const endYear = data.metadata.forecast_year
+    // KPI totals and CAGR use the same window as the Excel sheet: 2026 → 2033 (7 years)
+    const startYear = CAGR_VALUE_YEAR
+    const endYear = CAGR_END_YEAR
 
-    // Calculate total market size for start and end years
     let marketSizeStart = 0
     let marketSizeEnd = 0
 
     globalRecords.forEach(record => {
-      marketSizeStart += record.time_series[startYear] || 0
-      marketSizeEnd += record.time_series[endYear] || 0
+      marketSizeStart += timeSeriesGet(record.time_series, startYear)
+      marketSizeEnd += timeSeriesGet(record.time_series, endYear)
     })
 
-    // Calculate CAGR from start to end year
     const years = endYear - startYear
     const cagr = marketSizeStart > 0 && years > 0
       ? (Math.pow(marketSizeEnd / marketSizeStart, 1 / years) - 1) * 100
