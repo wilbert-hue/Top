@@ -1,106 +1,75 @@
 const fs = require('fs');
 const path = require('path');
 
+/**
+ * NOTE: Production figures for this dashboard are imported from
+ * `Dataset-U.S. Top 10 Specialty Types Moves Market.xlsx` via
+ * `import_us_specialty_moves_excel.py` (writes public/data/value.json & volume.json).
+ * This script remains as a fallback / template only.
+ */
+
 // Years: 2021-2033
 const years = [2021, 2022, 2023, 2024, 2025, 2026, 2027, 2028, 2029, 2030, 2031, 2032, 2033];
 
-// Geographies with their region grouping
+// Single geography: US only (top-level key matches geographical selection)
 const regions = {
-  "North America": ["U.S.", "Canada"],
-  "Europe": ["U.K.", "Germany", "Italy", "France", "Spain", "Russia", "Rest of Europe"],
-  "Asia Pacific": ["China", "India", "Japan", "South Korea", "ASEAN", "Australia", "Rest of Asia Pacific"],
-  "Latin America": ["Brazil", "Argentina", "Mexico", "Rest of Latin America"],
-  "Middle East & Africa": ["GCC", "South Africa", "Rest of Middle East & Africa"]
+  US: [],
 };
 
-// New segment definitions with market share splits (proportions within each segment type)
+// Internal keys: "By US Region" avoids collision with legacy "By Region" chart/geo logic.
+// UI maps "By US Region" -> "By Region" via segmentTypeDisplayLabel().
 const segmentTypes = {
-  "By Type": {
-    "Sub-Normothermic Perfusion (20–34°C)": 0.55,
-    "Warm or Normothermic Perfusion (35–37°C)": 0.45
+  'By Specialty Move Types': {
+    'Fine Art & Antiques Moving': 0.1,
+    'Pet Relocation & Animal Transport': 0.1,
+    'Laboratory & Biotech Equipment Moves': 0.1,
+    'Medical & Hospital Equipment Relocation': 0.1,
+    'Industrial & Manufacturing Equipment Moves': 0.1,
+    'Trade Show & Exhibition Logistics': 0.1,
+    'Museum & Cultural Institution Relocation': 0.1,
+    'Film, TV & Entertainment Production Moves': 0.1,
+    'Renewable Energy Equipment & Battery Transport': 0.1,
+    'Luxury Retail Store Fixtures & Visual Merchandising Moves': 0.1,
   },
-  "By Organ Type": {
-    "Liver": 0.35,
-    "Heart": 0.22,
-    "Lung": 0.18,
-    "Kidney": 0.15,
-    "Others (Pancreas, Small bowel / Intestine, Composite Tissues / Limb Perfusion (emerging use cases))": 0.10
+  'By US Region': {
+    Northeast: 0.25,
+    Southeast: 0.25,
+    Midwest: 0.25,
+    West: 0.25,
   },
-  "Application / Use Case": {
-    "Organ Preservation": 0.30,
-    "Viability Assessment": 0.25,
-    "Physiologic Transport": 0.20,
-    "Reconditioning Marginal Organs": 0.15,
-    "Others (Research Use / Protocol development)": 0.10
-  },
-  "By End User": {
-    "Hospitals & Clinics": 0.40,
-    "Specialty Clinic/Centers": 0.25,
-    "Transplant Centers": 0.25,
-    "Others (Research Institutes/Centers, Organ Procurement Organizations, etc.)": 0.10
-  }
 };
 
-// Regional base values (USD Million) for 2021 - total market per region
-// Global Normothermic Machine Perfusion market ~$300M in 2021, growing ~12% CAGR
 const regionBaseValues = {
-  "North America": 120,
-  "Europe": 90,
-  "Asia Pacific": 50,
-  "Latin America": 20,
-  "Middle East & Africa": 15
+  US: 320,
 };
 
-// Country share within region (must sum to ~1.0)
-const countryShares = {
-  "North America": { "U.S.": 0.82, "Canada": 0.18 },
-  "Europe": { "U.K.": 0.18, "Germany": 0.22, "Italy": 0.12, "France": 0.16, "Spain": 0.10, "Russia": 0.08, "Rest of Europe": 0.14 },
-  "Asia Pacific": { "China": 0.28, "India": 0.12, "Japan": 0.25, "South Korea": 0.12, "ASEAN": 0.10, "Australia": 0.07, "Rest of Asia Pacific": 0.06 },
-  "Latin America": { "Brazil": 0.45, "Argentina": 0.15, "Mexico": 0.25, "Rest of Latin America": 0.15 },
-  "Middle East & Africa": { "GCC": 0.45, "South Africa": 0.25, "Rest of Middle East & Africa": 0.30 }
-};
-
-// Growth rates (CAGR) per region - slightly different for variety
 const regionGrowthRates = {
-  "North America": 0.115,
-  "Europe": 0.108,
-  "Asia Pacific": 0.145,
-  "Latin America": 0.125,
-  "Middle East & Africa": 0.118
+  US: 0.12,
 };
 
-// Segment-specific growth multipliers (relative to regional base CAGR)
 const segmentGrowthMultipliers = {
-  "By Type": {
-    "Sub-Normothermic Perfusion (20–34°C)": 0.95,
-    "Warm or Normothermic Perfusion (35–37°C)": 1.07
+  'By Specialty Move Types': {
+    'Fine Art & Antiques Moving': 1.0,
+    'Pet Relocation & Animal Transport': 1.05,
+    'Laboratory & Biotech Equipment Moves': 1.08,
+    'Medical & Hospital Equipment Relocation': 1.06,
+    'Industrial & Manufacturing Equipment Moves': 1.04,
+    'Trade Show & Exhibition Logistics': 1.1,
+    'Museum & Cultural Institution Relocation': 0.98,
+    'Film, TV & Entertainment Production Moves': 1.12,
+    'Renewable Energy Equipment & Battery Transport': 1.15,
+    'Luxury Retail Store Fixtures & Visual Merchandising Moves': 1.03,
   },
-  "By Organ Type": {
-    "Liver": 1.08,
-    "Heart": 1.05,
-    "Lung": 1.12,
-    "Kidney": 0.95,
-    "Others (Pancreas, Small bowel / Intestine, Composite Tissues / Limb Perfusion (emerging use cases))": 1.20
+  'By US Region': {
+    Northeast: 1.02,
+    Southeast: 1.06,
+    Midwest: 1.04,
+    West: 1.1,
   },
-  "Application / Use Case": {
-    "Organ Preservation": 0.92,
-    "Viability Assessment": 1.15,
-    "Physiologic Transport": 1.05,
-    "Reconditioning Marginal Organs": 1.18,
-    "Others (Research Use / Protocol development)": 1.10
-  },
-  "By End User": {
-    "Hospitals & Clinics": 0.98,
-    "Specialty Clinic/Centers": 1.10,
-    "Transplant Centers": 1.08,
-    "Others (Research Institutes/Centers, Organ Procurement Organizations, etc.)": 1.05
-  }
 };
 
-// Volume multiplier: units per USD Million (rough: ~500 units per $1M for perfusion devices)
 const volumePerMillionUSD = 480;
 
-// Seeded pseudo-random for reproducibility
 let seed = 42;
 function seededRandom() {
   seed = (seed * 16807 + 0) % 2147483647;
@@ -134,12 +103,10 @@ function generateData(isVolume) {
   const roundFn = isVolume ? roundToInt : roundTo1;
   const multiplier = isVolume ? volumePerMillionUSD : 1;
 
-  // Generate data for each region and country
   for (const [regionName, countries] of Object.entries(regions)) {
     const regionBase = regionBaseValues[regionName] * multiplier;
     const regionGrowth = regionGrowthRates[regionName];
 
-    // Region-level data
     data[regionName] = {};
     for (const [segType, segments] of Object.entries(segmentTypes)) {
       data[regionName][segType] = {};
@@ -150,21 +117,8 @@ function generateData(isVolume) {
       }
     }
 
-    // Add "By Country" for each region
-    data[regionName]["By Country"] = {};
     for (const country of countries) {
-      const cShare = countryShares[regionName][country];
-      // Use a slight variation of region growth per country
-      const countryGrowthVariation = 1 + (seededRandom() - 0.5) * 0.06;
-      const countryBase = regionBase * cShare;
-      const countryGrowth = regionGrowth * countryGrowthVariation;
-      data[regionName]["By Country"][country] = generateTimeSeries(countryBase, countryGrowth, roundFn);
-    }
-
-    // Country-level data
-    for (const country of countries) {
-      const cShare = countryShares[regionName][country];
-      const countryBase = regionBase * cShare;
+      const countryBase = regionBase * 0.5;
       const countryGrowthVariation = 1 + (seededRandom() - 0.5) * 0.04;
       const countryGrowth = regionGrowth * countryGrowthVariation;
 
@@ -174,7 +128,6 @@ function generateData(isVolume) {
         for (const [segName, share] of Object.entries(segments)) {
           const segGrowth = countryGrowth * segmentGrowthMultipliers[segType][segName];
           const segBase = countryBase * share;
-          // Add slight country-specific variation to segment share
           const shareVariation = 1 + (seededRandom() - 0.5) * 0.1;
           data[country][segType][segName] = generateTimeSeries(segBase * shareVariation, segGrowth, roundFn);
         }
@@ -185,19 +138,15 @@ function generateData(isVolume) {
   return data;
 }
 
-// Generate both datasets
 seed = 42;
 const valueData = generateData(false);
 seed = 7777;
 const volumeData = generateData(true);
 
-// Write files
 const outDir = path.join(__dirname, 'public', 'data');
 fs.writeFileSync(path.join(outDir, 'value.json'), JSON.stringify(valueData, null, 2));
 fs.writeFileSync(path.join(outDir, 'volume.json'), JSON.stringify(volumeData, null, 2));
 
 console.log('Generated value.json and volume.json successfully');
-console.log('Value geographies:', Object.keys(valueData).length);
-console.log('Volume geographies:', Object.keys(volumeData).length);
-console.log('Segment types:', Object.keys(valueData['North America']));
-console.log('Sample - North America, By Type:', JSON.stringify(valueData['North America']['By Type'], null, 2));
+console.log('Value geographies:', Object.keys(valueData));
+console.log('Segment types:', Object.keys(valueData.US));

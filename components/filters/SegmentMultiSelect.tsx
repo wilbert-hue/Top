@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { useDashboardStore } from '@/lib/store'
+import { segmentTypeDisplayLabel } from '@/lib/segment-type-labels'
 import { Check, ChevronDown } from 'lucide-react'
 
 export function SegmentMultiSelect() {
@@ -216,7 +217,7 @@ export function SegmentMultiSelect() {
         >
           {segmentTypes.map(type => (
             <option key={type} value={type}>
-              {type}
+              {segmentTypeDisplayLabel(type)}
             </option>
           ))}
         </select>

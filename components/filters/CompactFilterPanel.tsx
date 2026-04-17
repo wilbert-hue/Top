@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useDashboardStore } from '@/lib/store'
+import { segmentTypeDisplayLabel } from '@/lib/segment-type-labels'
 import { BusinessTypeFilter } from './BusinessTypeFilter'
 import { X, Plus } from 'lucide-react'
 
@@ -347,7 +348,7 @@ export function CompactFilterPanel() {
               className="flex-1 px-2 py-1 text-xs text-black border border-gray-300 rounded"
             >
               {segmentTypes.map(type => (
-                <option key={type} value={type}>{type}</option>
+                <option key={type} value={type}>{segmentTypeDisplayLabel(type)}</option>
               ))}
             </select>
             <select

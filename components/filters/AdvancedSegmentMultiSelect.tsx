@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { useDashboardStore } from '@/lib/store'
+import { segmentTypeDisplayLabel } from '@/lib/segment-type-labels'
 import { Check, ChevronDown, X } from 'lucide-react'
 
 interface SelectedSegment {
@@ -133,7 +134,7 @@ export function AdvancedSegmentMultiSelect() {
                   {/* Segment Type Header */}
                   <div className="px-3 py-2 bg-blue-50 flex justify-between items-center">
                     <span className="text-sm font-medium text-blue-900">
-                      {segType}
+                      {segmentTypeDisplayLabel(segType)}
                       {selectedCount > 0 && (
                         <span className="ml-2 text-xs text-blue-600">
                           ({selectedCount} selected)

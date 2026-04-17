@@ -11,6 +11,7 @@ import { CascadeFilter } from '@/components/filters/CascadeFilter'
 import { BusinessTypeFilter } from '@/components/filters/BusinessTypeFilter'
 import { Layers, ChevronDown, X, Tag, Plus } from 'lucide-react'
 import type { DataRecord } from '@/lib/types'
+import { segmentTypeDisplayLabel } from '@/lib/segment-type-labels'
 
 // Wrapper components for opportunity matrix filters
 function OpportunityGeographyMultiSelect() {
@@ -1573,7 +1574,7 @@ export function D3BubbleChartIndependent({ title, height = 500 }: BubbleChartPro
                 // Show all segment types for both value and volume data
                 .map(option => (
                 <option key={option} value={option}>
-                  {option}
+                  {segmentTypeDisplayLabel(option)}
                 </option>
               )) : null}
             </select>

@@ -7,6 +7,7 @@ import { BusinessTypeFilter } from './BusinessTypeFilter'
 import { YearRangeSlider } from './YearRangeSlider'
 import { AggregationLevelSelector } from './AggregationLevelSelector'
 import { CascadeFilter } from './CascadeFilter'
+import { segmentTypeDisplayLabel } from '@/lib/segment-type-labels'
 import { X, Plus, MapPin, Tag } from 'lucide-react'
 
 interface SelectedSegmentItem {
@@ -380,7 +381,7 @@ export function EnhancedFilterPanel() {
             className="w-full px-3 py-2 border border-gray-300 rounded-md text-black"
           >
             {segmentTypes.map(type => (
-              <option key={type} value={type}>{type}</option>
+              <option key={type} value={type}>{segmentTypeDisplayLabel(type)}</option>
             ))}
           </select>
         </div>
@@ -388,7 +389,7 @@ export function EnhancedFilterPanel() {
         {/* Cascade Filter - Step 2 */}
         <div>
           <label className="block text-xs text-black mb-1">
-            Step 2: Select Segment from {selectedSegmentType}
+            Step 2: Select Segment from {segmentTypeDisplayLabel(selectedSegmentType)}
           </label>
           {Object.keys(hierarchy).length === 0 && availableSegments.length === 0 ? (
             <div className="w-full px-3 py-2 border border-yellow-300 rounded-md mb-2 bg-yellow-50 text-yellow-800 text-sm">
